@@ -1,0 +1,17 @@
+include README.md
+include ARCHITECTURE.md
+include LICENSE
+recursive-include cfg *.yaml
+recursive-include data *.yaml
+recursive-include detector *.py
+recursive-include detector/cli *.py
+recursive-include detector/models *.py
+recursive-include detector/utils *.py
+recursive-include detector/utils/wandb_logging *.py
+recursive-include detector/utils/aws *.py
+recursive-include ckpoints *.pt
+prune __pycache__
+prune *.pyc
+prune .git
+prune .vscode
+prune runs

@@ -1,0 +1,20 @@
+# Core dependencies
+torch>=1.7.0
+torchvision>=0.8.0
+numpy>=1.18.5
+opencv-python>=4.1.1
+PyYAML>=5.3.1
+tqdm>=4.46.0
+tensorboard
+pandas>=1.1.4
+seaborn>=0.11.0
+matplotlib>=3.3.0
+Pillow>=7.1.2
+scipy>=1.4.1
+thop>=0.0.31
+
+# Web interface (GUI)
+flask>=2.0.0
+
+# Optional: Training visualization
+wandb>=0.12.0

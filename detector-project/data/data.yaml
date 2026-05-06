@@ -1,0 +1,8 @@
+
+
+train: /home/observe/data/0公开数据集/ordinary_car/0116opendata/crop_itc_dataset/Training/train.txt
+test: /home/observe/data/0公开数据集/ordinary_car/0116opendata/crop_itc_dataset/Training/val.txt
+val: /home/observe/data/0公开数据集/ordinary_car/0116opendata/crop_itc_dataset/Training/test.txt
+
+nc: 1  # 类别数量
+names: ['object']  # 类别名称

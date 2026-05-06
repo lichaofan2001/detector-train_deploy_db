@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector 训练管理</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo">Detector 训练管理 <span style="font-size: 0.7em; opacity: 0.7;">v{{ version }}</span></div>
+        <nav class="tabs">
+            <button class="tab active" data-tab="config">训练配置</button>
+            <button class="tab" data-tab="inference">推理测试</button>
+            <button class="tab" data-tab="realtime">实时流检测</button>
+            <button class="tab" data-tab="models">模型管理</button>
+        </nav>
+        <div class="status-badge" id="statusBadge">空闲</div>
+    </header>
+
+    </main>
+
+    <!-- ==================== Tab: Training Config ==================== -->
+    <section id="tab-config" class="tab-panel active">
+        <div class="page-container">
+            <div class="train-layout" id="trainLayout">
+                <div class="train-config" id="trainConfigPane">
+                    <div class="config-section">
+                        <div class="panel">
+                        <h2>数据配置</h2>
+                        <div class="data-mode-switch">
+                            <button class="mode-btn active" id="modeYaml" onclick="switchDataMode('yaml')">选择 YAML 文件</button>
+                            <button class="mode-btn" id="modeDir" onclick="switchDataMode('dir')">从图片目录生成</button>
+                        </div>
+
+                        <div id="dataYamlMode">
+                            <div class="form-group" style="margin-top:12px">
+                                <label>数据配置文件 (data.yaml)</label>
+                                <div class="file-input-row">
+                                    <select id="data_select" class="input select-input" onchange="onQuickSelect('data_select','data')">
+                                        <option value="">-- 请选择 --</option>
+                                    </select>
+                                    <button class="btn btn-sm" onclick="openBrowser('data', '.yaml')">浏览</button>
+                                </div>
+                                <input type="text" id="data" class="input path-display" readonly placeholder="未选择文件">
+                            </div>
+                        </div>
+
+                        <div id="dataDirMode" style="display:none">
+                            <div class="form-group" style="margin-top:12px">
+                                <label>图片目录路径</label>
+                                <div class="file-input-row">
+                                    <input type="text" id="img_dir" class="input" readonly placeholder="点击浏览选择图片目录">
+                                    <button class="btn btn-sm" onclick="openBrowser('img_dir', '', true)">浏览</button>
+                                </div>
+                            </div>
+                            <div class="form-grid cols-2" style="margin-top:8px">
+                                <div class="form-group">
+                                    <label>类别数量 (nc)</label>
+                                    <input type="number" id="split_nc" class="input" value="1" min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>类别名称</label>
+                                    <input type="text" id="split_names" class="input" placeholder="逗号分隔">
+                                </div>
+                            </div>
+                            <div class="split-action">
+                                <button class="btn btn-primary" onclick="generateDataset()">生成数据集</button>
+                                <span id="splitResult" class="split-result"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <h2>训练参数</h2>
+                        <div class="form-grid cols-2">
+                            <div class="form-group">
+                                <label>训练轮数 (epochs)</label>
+                                <input type="number" id="epochs" class="input" value="20" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>批次大小 (batch-size)</label>
+                                <input type="number" id="batch_size" class="input" value="32" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>训练图像尺寸</label>
+                                <input type="number" id="img_size_train" class="input" value="1024" min="32" step="32">
+                            </div>
+                            <div class="form-group">
+                                <label>测试图像尺寸</label>
+                                <input type="number" id="img_size_test" class="input" value="1024" min="32" step="32">
+                            </div>
+                            <div class="form-group">
+                                <label>工作线程数 (workers)</label>
+                                <input type="number" id="workers" class="input" value="16" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>GPU/CPU</label>
+                                <div class="device-select-wrapper">
+                                    <button type="button" class="btn btn-sm" id="btnDeviceSelect" onclick="openDeviceSelect()">选择设备</button>
+                                    <span id="selectedDeviceDisplay" class="device-display">未选择</span>
+                                </div>
+                                <input type="hidden" id="device" value="">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <h2>输出设置</h2>
+                        <div class="form-group">
+                            <label>输出路径 (project)</label>
+                            <div class="file-input-row">
+                                <input type="text" id="project" class="input" value="" placeholder="留空使用默认路径">
+                                <button class="btn btn-sm" onclick="openBrowser('project', '', true)">浏览</button>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:12px">
+                            <label>实验名称 (name)</label>
+                            <input type="text" id="name" class="input" value="exp" placeholder="训练实验名称">
+                        </div>
+                    </div>
+
+                    <div class="panel panel-collapsible">
+                        <h2 class="collapsible-header" onclick="toggleCollapse(this)">
+                            高级配置
+                            <span class="collapse-arrow">&#9660;</span>
+                        </h2>
+                        <div class="collapsible-body" style="display:none">
+                            <div class="form-group">
+                                <label>模型配置 (cfg)</label>
+                                <div class="file-input-row">
+                                    <select id="cfg_select" class="input select-input" onchange="onQuickSelect('cfg_select','cfg')">
+                                        <option value="">-- 请选择 --</option>
+                                    </select>
+                                    <button class="btn btn-sm" onclick="openBrowser('cfg', '.yaml')">浏览</button>
+                                </div>
+                                <input type="text" id="cfg" class="input path-display" readonly>
+                            </div>
+                            <div class="form-group" style="margin-top:12px">
+                                <label>预训练权重</label>
+                                <div class="file-input-row">
+                                    <select id="weights_select" class="input select-input" onchange="onQuickSelect('weights_select','weights')">
+                                        <option value="">-- 不使用 --</option>
+                                    </select>
+                                    <button class="btn btn-sm" onclick="openBrowser('weights', '.pt')">浏览</button>
+                                </div>
+                                <div class="file-input-row" style="margin-top:4px">
+                                    <input type="text" id="weights" class="input path-display" readonly placeholder="留空从头训练">
+                                    <button class="btn btn-sm btn-text" onclick="clearField('weights')" title="清空">清空</button>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top:12px">
+                                <label>冻结网络层数 (freeze)</label>
+                                <input type="text" id="freeze" class="input" value="0" placeholder="0-49">
+                                <span class="hint">主干网络共 50 层</span>
+                            </div>
+                            <div class="form-group" style="margin-top:12px">
+                                <label>超参数配置 (hyp)</label>
+                                <div class="file-input-row">
+                                    <select id="hyp_select" class="input select-input" onchange="onQuickSelect('hyp_select','hyp')">
+                                        <option value="">-- 请选择 --</option>
+                                    </select>
+                                    <button class="btn btn-sm" onclick="openBrowser('hyp', '.yaml')">浏览</button>
+                                </div>
+                                <input type="text" id="hyp" class="input path-display" readonly>
+                            </div>
+                            <div class="form-group" style="margin-top:12px">
+                                <label>保存间隔 (save_period)</label>
+                                <input type="number" id="save_period" class="input" value="-1" min="-1">
+                                <span class="hint">-1 仅保存 best/last</span>
+                            </div>
+                        </div>
+                    </div>
+
+                        <div class="action-bar config-actions">
+                            <button class="btn btn-primary btn-lg" id="btnStartTrain" onclick="startTraining()">开始训练</button>
+                            <button class="btn btn-lg" onclick="initGPUAndLoadDefaults()">恢复默认</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="train-splitter" id="trainSplitter" role="separator" aria-orientation="vertical" aria-label="调整训练配置和训练监控区域宽度"></div>
+                <div class="train-monitor" id="trainMonitorPane">
+                    <div class="panel monitor-panel">
+                        <div class="monitor-header">
+                            <h2>训练日志</h2>
+                            <div class="monitor-actions">
+                                <label class="checkbox-item"><input type="checkbox" id="autoScroll" checked> 自动滚动</label>
+                                <button class="btn btn-sm" onclick="clearLog()">清空</button>
+                                <button class="btn btn-sm btn-danger" id="btnStopTrain" onclick="stopTraining()" disabled>停止训练</button>
+                            </div>
+                        </div>
+                        <pre id="logOutput" class="log-output"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </section>
+
+    <!-- ==================== Tab: Inference ==================== -->
+    <section id="tab-inference" class="tab-panel">
+        <div class="page-container">
+            <div class="inference-layout" id="inferenceLayout">
+                <div class="inference-config" id="inferenceConfigPane">
+                    <div class="panel">
+                        <h2>模型选择</h2>
+                        <div class="form-group">
+                            <label>推理方式</label>
+                            <div class="radio-group">
+                                <label class="radio-item">
+                                    <input type="radio" name="inferenceMode" value="fast" checked onchange="onInferenceModeChange()">
+                                    快速推理
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" name="inferenceMode" value="large" onchange="onInferenceModeChange()">
+                                    大模型推理
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" id="yoloModelGroup">
+                            <label>选择模型</label>
+                            <div class="file-input-row">
+                                <select id="inference_model_select" class="input select-input" onchange="onInferenceModelSelect()">
+                                    <option value="">-- 请选择 --</option>
+                                </select>
+                                <button class="btn btn-sm" onclick="openBrowser('inference_weights', '.pt')">浏览</button>
+                            </div>
+                            <div class="file-input-row" style="margin-top:4px">
+                                <input type="text" id="inference_weights" class="input path-display" readonly placeholder="选择或上传模型">
+                            </div>
+                        </div>
+                        <div class="form-group" id="qwenModelGroup" style="display:none">
+                            <label>模型路径</label>
+                            <div class="file-input-row">
+                                <input type="text" id="qwen_model_path" class="input path-display" readonly placeholder="选择模型文件夹">
+                                <button class="btn btn-sm" onclick="openBrowser('qwen_model_path', '', true)">浏览</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <h2>输入设置</h2>
+                        <div class="form-group">
+                            <label>选择输入类型</label>
+                            <div class="radio-group">
+                                <label class="radio-item">
+                                    <input type="radio" name="inputType" value="video" checked onchange="onInputTypeChange()">
+                                    视频文件
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" name="inputType" value="folder" onchange="onInputTypeChange()">
+                                    图片文件夹
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="videoInputArea">
+                            <div class="form-group">
+                                <label>上传视频文件</label>
+                                <div class="file-input-row">
+                                    <input type="file" id="videoUpload" accept="video/mp4,video/x-m4v,video/*" style="display:none" onchange="onVideoSelected()">
+                                    <input type="text" id="videoPath" class="input" readonly placeholder="选择视频文件">
+                                    <button class="btn btn-sm" onclick="document.getElementById('videoUpload').click()">选择视频</button>
+                                </div>
+                            </div>
+                            <div class="form-grid cols-2" style="margin-top:12px">
+                                <div class="form-group">
+                                    <label>帧间隔</label>
+                                    <input type="number" id="frameInterval" class="input" value="5" min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>最大帧数</label>
+                                    <input type="number" id="maxFrames" class="input" value="100" min="1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="folderInputArea" style="display:none">
+                            <div class="form-group">
+                                <label>选择图片文件夹</label>
+                                <div class="file-input-row">
+                                    <input type="text" id="imageFolder" class="input" readonly placeholder="选择图片文件夹">
+                                    <button class="btn btn-sm" onclick="openBrowser('imageFolder', '', true)">浏览</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px">
+                            <label>输出文件夹</label>
+                            <div class="file-input-row">
+                                <input type="text" id="outputFolder" class="input" value="inference_result" placeholder="输出文件夹">
+                                <button class="btn btn-sm" onclick="openBrowser('outputFolder', '', true)">浏览</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <h2>推理参数</h2>
+                        <div class="form-grid cols-2" style="margin-top:12px">
+                            <div class="form-group">
+                                <label>置信度阈值</label>
+                                <input type="number" id="conf_thres" class="input" value="0.25" min="0" max="1" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>IOU 阈值</label>
+                                <input type="number" id="iou_thres" class="input" value="0.45" min="0" max="1" step="0.01">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:12px">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="saveResultImages" checked>
+                                保存结果图片
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-top:8px">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="onlySaveWithObjects">
+                                只保存带目标的图像
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-top:12px">
+                            <label>忽略类别ID</label>
+                            <input type="text" id="ignoreClassId" class="input" placeholder="输入要忽略的类别ID，多个用逗号分隔">
+                        </div>
+                    </div>
+
+                    <div class="action-bar">
+                        <button class="btn btn-primary btn-lg" id="btnStartInference" onclick="startInference()">开始推理</button>
+                        <button class="btn btn-lg" onclick="resetInference()">重置</button>
+                    </div>
+                </div>
+
+                <div class="inference-splitter" id="inferenceSplitter" role="separator" aria-orientation="vertical" aria-label="调整推理参数和结果展示区域宽度"></div>
+                <div id="inferenceResultArea" class="inference-result">
+                    <div class="panel">
+                        <div class="result-header">
+                            <h2>推理结果</h2>
+                            <div class="result-nav">
+                                <button class="btn btn-sm" id="btnPrevResult" onclick="prevResultImage()">上一张</button>
+                                <span id="resultCounter">0 / 0</span>
+                                <button class="btn btn-sm" id="btnNextResult" onclick="nextResultImage()">下一张</button>
+                            </div>
+                        </div>
+                        <div class="result-image-container">
+                            <img id="resultImage" src="" alt="推理结果">
+                        </div>
+                        <div id="resultInfo" class="result-info"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== Tab: Realtime Stream Detection ==================== -->
+    <section id="tab-realtime" class="tab-panel">
+        <div class="page-container">
+            <div class="realtime-layout" id="realtimeLayout">
+                <div class="realtime-config" id="realtimeConfigPane">
+                    <div class="panel">
+                        <h2>共享内存配置</h2>
+                        <div class="form-group">
+                            <label>共享内存目录</label>
+                            <div class="file-input-row">
+                                <input type="text" id="rtMmapDir" class="input path-display" placeholder="留空使用默认路径">
+                                <button class="btn btn-sm" onclick="openBrowser('rtMmapDir', '', true)">浏览</button>
+                            </div>
+                            <span class="hint">数据源: EO (可见光)</span>
+                        </div>
+                        <div class="form-group" style="margin-top:12px">
+                            <label>模型权重</label>
+                            <div class="file-input-row">
+                                <select id="rt_model_select" class="input select-input" onchange="onRealtimeModelSelect()">
+                                    <option value="">-- 请选择 --</option>
+                                </select>
+                                <button class="btn btn-sm" onclick="openBrowser('rt_weights', '.pt')">浏览</button>
+                            </div>
+                            <div class="file-input-row" style="margin-top:4px">
+                                <input type="text" id="rt_weights" class="input path-display" readonly placeholder="选择模型文件">
+                            </div>
+                        </div>
+                        <div class="form-grid cols-2" style="margin-top:12px">
+                            <div class="form-group">
+                                <label>置信度阈值</label>
+                                <input type="number" id="rt_conf_thres" class="input" value="0.25" min="0" max="1" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>IOU 阈值</label>
+                                <input type="number" id="rt_iou_thres" class="input" value="0.45" min="0" max="1" step="0.01">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:12px">
+                            <label>视频保存位置</label>
+                            <div class="file-input-row">
+                                <input type="text" id="recording_path" class="input path-display" placeholder="留空使用默认位置">
+                                <button class="btn btn-sm" onclick="openBrowser('recording_path', '')">浏览</button>
+                            </div>
+                        </div>
+                        <div class="action-bar realtime-actions" style="margin-top:8px">
+                            <button class="btn btn-record" id="btnStartRecording" onclick="startRecording()">开始录制</button>
+                            <button class="btn btn-stop" id="btnStopRecording" onclick="stopRecording()" disabled>结束录制</button>
+                        </div>
+                        <div id="recordingStatusText" class="hint" style="margin-top:8px"></div>
+                    </div>
+                    <div class="panel" style="margin-top:12px">
+                        <h2>操作</h2>
+                        <div class="action-bar realtime-actions">
+                            <button class="btn btn-primary" id="btnRtConnect" onclick="connectRealtimeStream()">连接视频流</button>
+                            <button class="btn" id="btnRtDisconnect" onclick="disconnectRealtimeStream()" disabled>断开连接</button>
+                        </div>
+                        <div class="action-bar realtime-actions" style="margin-top:8px">
+                            <button class="btn" id="btnRtSaveFrame" onclick="saveRealtimeFrame()" disabled>保存当前帧</button>
+                            <button class="btn" id="btnRtSendFrame" onclick="sendRealtimeFrame()" disabled>发送当前帧</button>
+                        </div>
+                        <div id="realtimeStatusText" class="hint" style="margin-top:12px">未连接</div>
+                    </div>
+                </div>
+
+                <div class="realtime-splitter" id="realtimeSplitter" role="separator" aria-orientation="vertical" aria-label="调整实时流配置和画面区域宽度"></div>
+
+                <div class="realtime-result" id="realtimeResultPane">
+                    <div class="panel">
+                        <div class="result-header">
+                            <h2>实时检测画面</h2>
+                            <div class="result-nav">
+                                <span id="realtimeMeta">等待连接</span>
+                            </div>
+                        </div>
+                        <div class="result-image-container">
+                            <img id="realtimeFrame" src="" alt="实时检测帧">
+                        </div>
+                        <div id="realtimeResultInfo" class="result-info">暂无推理结果</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+        
+
+        <!-- ==================== Tab: Model Management ==================== -->
+        <section id="tab-models" class="tab-panel">
+            <div class="page-container">
+                <div class="panel">
+                    <div class="models-header">
+                        <h2>训练模型列表</h2>
+                        <button class="btn btn-sm" onclick="loadModels()">刷新</button>
+                    </div>
+                    <div class="form-group" style="margin-top:12px">
+                        <label>选择路径</label>
+                        <div class="file-input-row">
+                            <input type="text" id="modelPath" class="input" value="" placeholder="留空使用默认路径">
+                            <button class="btn btn-sm" onclick="openBrowser('modelPath', '', true)">浏览</button>
+                        </div>
+                    </div>
+                    <div id="modelList" class="model-list">
+                        <p class="hint">加载中...</p>
+                    </div>
+                </div>
+
+            <!-- Model Detail Modal -->
+            <div id="modelDetailModal" class="modal" style="display:none">
+                <div class="modal-content modal-lg">
+                    <div class="modal-header">
+                        <h3 id="modelDetailTitle">模型详情</h3>
+                        <button class="modal-close" onclick="closeModal('modelDetailModal')">&times;</button>
+                    </div>
+                    <div id="modelDetailBody" class="modal-body"></div>
+                </div>
+            </div>
+
+            <!-- ONNX Export Modal -->
+            <div id="onnxModal" class="modal" style="display:none">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>导出 ONNX 模型</h3>
+                        <button class="modal-close" onclick="closeModal('onnxModal')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>权重文件</label>
+                            <input type="text" id="onnx_weights" class="input" readonly>
+                        </div>
+                        <div class="form-grid cols-2" style="margin-top:12px">
+                            <div class="form-group">
+                                <label>宽度 (width)</label>
+                                <input type="number" id="onnx_img_width" class="input" value="1024" min="32" step="32">
+                            </div>
+                            <div class="form-group">
+                                <label>高度 (height)</label>
+                                <input type="number" id="onnx_img_height" class="input" value="1024" min="32" step="32">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:12px">
+                            <label>导出格式</label>
+                            <select id="onnx_grid" class="input select-input">
+                                <option value="false">GPU 格式（不含 grid）</option>
+                                <option value="true">NPU 格式（含 grid）</option>
+                            </select>
+                        </div>
+                        <div id="onnxExportLog" class="export-log" style="display:none"></div>
+                        <div id="onnxDownloadArea"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn" onclick="closeModal('onnxModal')">关闭</button>
+                        <button class="btn btn-primary" id="btnDoExport" onclick="doExportOnnx()">开始导出</button>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- File Browser Modal -->
+    <div id="browserModal" class="modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择文件</h3>
+                <button class="modal-close" onclick="closeBrowser()">&times;</button>
+            </div>
+            <div class="browser-shortcuts" id="browserShortcuts"></div>
+            <div class="browser-drives" id="browserDrives" style="display:none; padding: 6px 20px; border-bottom: 1px solid var(--border);"></div>
+            <div class="browser-path-bar">
+                <button class="btn btn-sm" id="browserUpBtn" onclick="browserGoUp()">上级目录</button>
+                <span id="browserCurrentPath" class="browser-path-text"></span>
+            </div>
+            <div id="browserList" class="browser-list"></div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeBrowser()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // =====================================================================
+    // State
+    // =====================================================================
+    let currentTarget = null;
+    let currentFilter = '';
+    let selectDir = false;
+    let eventSource = null;
+    let isDraggingTrainSplitter = false;
+    let isDraggingInferenceSplitter = false;
+    let isDraggingRealtimeSplitter = false;
+    let realtimeFrameTimer = null;
+    let realtimeStatusTimer = null;
+    let realtimeImageObjectUrl = null;
+
+    // =====================================================================
+    // Tab Navigation
+    // =====================================================================
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
+            if (tab.dataset.tab === 'models') loadModels();
+            if (tab.dataset.tab === 'inference') loadInferenceModels();
+            if (tab.dataset.tab === 'realtime') loadRealtimeModels();
+        });
+    });
+
+    function initTrainSplitter() {
+        const layout = document.getElementById('trainLayout');
+        const splitter = document.getElementById('trainSplitter');
+        const configPane = document.getElementById('trainConfigPane');
+        if (!layout || !splitter || !configPane) return;
+
+        const minLeft = 300;
+        const minRight = 360;
+
+        const applyWidth = (clientX) => {
+            const rect = layout.getBoundingClientRect();
+            const splitterWidth = splitter.offsetWidth || 10;
+            const maxLeft = rect.width - minRight - splitterWidth;
+            const next = Math.min(Math.max(clientX - rect.left, minLeft), maxLeft);
+            configPane.style.flex = '0 0 ' + next + 'px';
+        };
+
+        splitter.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 768) return;
+            isDraggingTrainSplitter = true;
+            document.body.classList.add('is-resizing');
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingTrainSplitter) return;
+            applyWidth(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDraggingTrainSplitter) return;
+            isDraggingTrainSplitter = false;
+            document.body.classList.remove('is-resizing');
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                configPane.style.flex = '';
+                return;
+            }
+            const basis = parseFloat(window.getComputedStyle(configPane).flexBasis);
+            if (!Number.isNaN(basis)) applyWidth(layout.getBoundingClientRect().left + basis);
+        });
+    }
+    initTrainSplitter();
+
+    function initInferenceSplitter() {
+        const layout = document.getElementById('inferenceLayout');
+        const splitter = document.getElementById('inferenceSplitter');
+        const configPane = document.getElementById('inferenceConfigPane');
+        if (!layout || !splitter || !configPane) return;
+
+        const minLeft = 300;
+        const minRight = 420;
+
+        const applyWidth = (clientX) => {
+            const rect = layout.getBoundingClientRect();
+            const splitterWidth = splitter.offsetWidth || 10;
+            const maxLeft = rect.width - minRight - splitterWidth;
+            const next = Math.min(Math.max(clientX - rect.left, minLeft), maxLeft);
+            configPane.style.flex = '0 0 ' + next + 'px';
+        };
+
+        splitter.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 768) return;
+            isDraggingInferenceSplitter = true;
+            document.body.classList.add('is-resizing');
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingInferenceSplitter) return;
+            applyWidth(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDraggingInferenceSplitter) return;
+            isDraggingInferenceSplitter = false;
+            document.body.classList.remove('is-resizing');
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                configPane.style.flex = '';
+                return;
+            }
+            const basis = parseFloat(window.getComputedStyle(configPane).flexBasis);
+            if (!Number.isNaN(basis)) applyWidth(layout.getBoundingClientRect().left + basis);
+        });
+    }
+    initInferenceSplitter();
+
+    function initRealtimeSplitter() {
+        const layout = document.getElementById('realtimeLayout');
+        const splitter = document.getElementById('realtimeSplitter');
+        const configPane = document.getElementById('realtimeConfigPane');
+        if (!layout || !splitter || !configPane) return;
+
+        const minLeft = 320;
+        const minRight = 420;
+
+        const applyWidth = (clientX) => {
+            const rect = layout.getBoundingClientRect();
+            const splitterWidth = splitter.offsetWidth || 10;
+            const maxLeft = rect.width - minRight - splitterWidth;
+            const next = Math.min(Math.max(clientX - rect.left, minLeft), maxLeft);
+            configPane.style.flex = '0 0 ' + next + 'px';
+        };
+
+        splitter.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 768) return;
+            isDraggingRealtimeSplitter = true;
+            document.body.classList.add('is-resizing');
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingRealtimeSplitter) return;
+            applyWidth(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDraggingRealtimeSplitter) return;
+            isDraggingRealtimeSplitter = false;
+            document.body.classList.remove('is-resizing');
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                configPane.style.flex = '';
+                return;
+            }
+            const basis = parseFloat(window.getComputedStyle(configPane).flexBasis);
+            if (!Number.isNaN(basis)) applyWidth(layout.getBoundingClientRect().left + basis);
+        });
+    }
+    initRealtimeSplitter();
+
+    // =====================================================================
+    // Collapsible Panels
+    // =====================================================================
+    function toggleCollapse(header) {
+        const body = header.nextElementSibling;
+        const arrow = header.querySelector('.collapse-arrow');
+        if (body.style.display === 'none') {
+            body.style.display = 'block';
+            arrow.innerHTML = '&#9650;';
+        } else {
+            body.style.display = 'none';
+            arrow.innerHTML = '&#9660;';
+        }
+    }
+
+    // =====================================================================
+    // Data Mode Switch
+    // =====================================================================
+    function switchDataMode(mode) {
+        document.getElementById('modeYaml').classList.toggle('active', mode === 'yaml');
+        document.getElementById('modeDir').classList.toggle('active', mode === 'dir');
+        document.getElementById('dataYamlMode').style.display = mode === 'yaml' ? 'block' : 'none';
+        document.getElementById('dataDirMode').style.display = mode === 'dir' ? 'block' : 'none';
+    }
+
+    // =====================================================================
+    // Dataset Generation
+    // =====================================================================
+    async function generateDataset() {
+        const imgDir = document.getElementById('img_dir').value;
+        const nc = parseInt(document.getElementById('split_nc').value) || 1;
+        const namesStr = document.getElementById('split_names').value.trim();
+        if (!imgDir) { alert('请先选择图片目录'); return; }
+        if (!namesStr) { alert('请输入类别名称'); return; }
+
+        const names = namesStr.split(',').map(s => s.trim()).filter(s => s);
+        if (names.length !== nc) {
+            alert('类别名称数量(' + names.length + ')与类别数(' + nc + ')不匹配');
+            return;
+        }
+
+        const resultEl = document.getElementById('splitResult');
+        resultEl.textContent = '生成中...';
+        resultEl.className = 'split-result';
+
+        const resp = await fetch('/api/dataset/split', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({img_dir: imgDir, nc: nc, names: names}),
+        });
+        const data = await resp.json();
+        if (data.error) {
+            resultEl.textContent = data.error;
+            resultEl.className = 'split-result error';
+            return;
+        }
+
+        resultEl.innerHTML = '已生成: 训练集 ' + data.train_count + ' / 验证集 ' + data.val_count +
+            ' / 测试集 ' + data.test_count + ' (共 ' + data.total_images + ' 张)';
+        resultEl.className = 'split-result success';
+
+        // Auto-fill the data yaml path
+        setFileInput('data', data.yaml_path);
+        // Switch to yaml mode to show the result
+        switchDataMode('yaml');
+    }
+
+    // =====================================================================
+    // Defaults & Quick Select
+    // =====================================================================
+    function populateSelect(selectId, items, currentValue, emptyLabel) {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = '<option value="">' + (emptyLabel || '-- 请选择 --') + '</option>';
+        items.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.path;
+            opt.textContent = item.name;
+            if (item.path === currentValue) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function onQuickSelect(selectId, inputId) {
+        const sel = document.getElementById(selectId);
+        setFileInput(inputId, sel.value);
+    }
+
+    function clearField(id) {
+        document.getElementById(id).value = '';
+        const sel = document.getElementById(id + '_select');
+        if (sel) sel.selectedIndex = 0;
+    }
+
+    function setFileInput(id, fullPath) {
+        const el = document.getElementById(id);
+        if (!fullPath) {
+            el.value = '';
+            el.dataset.fullPath = '';
+            return;
+        }
+        el.dataset.fullPath = fullPath;
+        const fileName = fullPath.split(/[/\\]/).pop();
+        el.value = fileName;
+        el.title = '完整路径: ' + fullPath;
+    }
+
+    async function loadDefaults() {
+        const resp = await fetch('/api/defaults');
+        const d = await resp.json();
+
+        setFileInput('cfg', d.cfg);
+        setFileInput('data', d.data);
+        setFileInput('weights', d.weights);
+        setFileInput('hyp', d.hyp);
+        document.getElementById('epochs').value = d.epochs;
+        document.getElementById('batch_size').value = d.batch_size;
+        document.getElementById('img_size_train').value = d.img_size_train;
+        document.getElementById('img_size_test').value = d.img_size_test;
+        document.getElementById('workers').value = d.workers;
+        document.getElementById('name').value = d.name;
+        document.getElementById('freeze').value = d.freeze;
+
+        if (d.available_cfgs) populateSelect('cfg_select', d.available_cfgs, d.cfg);
+        if (d.available_data) populateSelect('data_select', d.available_data, d.data);
+        if (d.available_weights) populateSelect('weights_select', d.available_weights, d.weights, '-- 不使用 --');
+        if (d.available_hyps) populateSelect('hyp_select', d.available_hyps, d.hyp);
+    }
+    initGPUAndLoadDefaults();
+
+    // =====================================================================
+    // File Browser
+    // =====================================================================
+    function openBrowser(target, filter, dirMode) {
+        currentTarget = target;
+        currentFilter = filter || '';
+        selectDir = !!dirMode;
+        document.getElementById('browserModal').style.display = 'flex';
+        let startPath = document.getElementById(target).dataset.fullPath || document.getElementById(target).value;
+        if (!startPath || !startPath.includes('/') && !startPath.includes('\\')) {
+            startPath = '';
+        }
+        browseTo(startPath);
+    }
+
+    function closeBrowser() { document.getElementById('browserModal').style.display = 'none'; }
+
+    async function browseTo(path) {
+        let url = '/api/browse?filter=' + encodeURIComponent(currentFilter);
+        if (path) url += '&path=' + encodeURIComponent(path);
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data.error) { alert(data.error); return; }
+
+        document.getElementById('browserCurrentPath').textContent = data.current;
+        document.getElementById('browserUpBtn').disabled = !data.parent;
+        document.getElementById('browserUpBtn').dataset.parent = data.parent || '';
+
+        const sc = document.getElementById('browserShortcuts');
+        sc.innerHTML = data.shortcuts.map(s =>
+            `<button class="btn btn-sm shortcut-btn" onclick="browseTo('${escAttr(s.path)}')">${escHtml(s.name)}</button>`
+        ).join('');
+        if (selectDir) {
+            sc.innerHTML += `<button class="btn btn-sm btn-primary shortcut-btn" onclick="selectCurrentDir()">选择当前目录</button>`;
+        }
+
+        const drivesEl = document.getElementById('browserDrives');
+        if (data.drives && data.drives.length > 0) {
+            drivesEl.style.display = 'block';
+            drivesEl.innerHTML = '<span style="font-size:12px;color:var(--text-muted);margin-right:8px;">驱动器:</span>' +
+                data.drives.map(d =>
+                    `<button class="btn btn-sm shortcut-btn" onclick="browseTo('${escAttr(d.path)}')" style="${data.is_at_drive_root && data.current.startsWith(d.path.replace(/\\/g, '/')) ? 'background:var(--primary);color:#fff;' : ''}">${escHtml(d.name)}</button>`
+                ).join('');
+        } else {
+            drivesEl.style.display = 'none';
+        }
+
+        const list = document.getElementById('browserList');
+        if (data.items.length === 0) {
+            list.innerHTML = '<div class="browser-empty">此目录为空或无匹配文件</div>';
+            return;
+        }
+        list.innerHTML = data.items.map(item => {
+            if (item.is_dir) {
+                return `<div class="browser-item browser-dir" onclick="browseTo('${escAttr(item.path)}')">
+                    <span class="icon dir-icon"></span>
+                    <span class="item-name">${escHtml(item.name)}</span>
+                </div>`;
+            } else {
+                return `<div class="browser-item browser-file" onclick="selectFile('${escAttr(item.path)}')">
+                    <span class="icon file-icon"></span>
+                    <span class="item-name">${escHtml(item.name)}</span>
+                    <span class="item-size">${item.size || ''}</span>
+                </div>`;
+            }
+        }).join('');
+    }
+
+    function browserGoUp() {
+        const p = document.getElementById('browserUpBtn').dataset.parent;
+        if (p) browseTo(p);
+    }
+    function selectFile(path) {
+        const el = document.getElementById(currentTarget);
+        el.dataset.fullPath = path;
+        const fileName = path.split(/[/\\]/).pop();
+        el.value = fileName;
+        el.title = '完整路径: ' + path;
+        closeBrowser();
+
+        if (currentTarget === 'inference_weights' && path.endsWith('.pt')) {
+            fetchModelInfo(path);
+        }
+    }
+
+    function getFullPath(id) {
+        const el = document.getElementById(id);
+        return el.dataset.fullPath || el.value;
+    }
+    function selectCurrentDir() {
+        const el = document.getElementById(currentTarget);
+        const path = document.getElementById('browserCurrentPath').textContent;
+        el.value = path;
+        el.dataset.fullPath = path;
+        closeBrowser();
+
+        if (currentTarget === 'modelPath') {
+            loadModels();
+        }
+    }
+
+    // =====================================================================
+    // Training
+    // =====================================================================
+    function gatherParams() {
+        const p = {};
+        ['cfg', 'data', 'weights', 'hyp'].forEach(k => { p[k] = getFullPath(k); });
+        ['project'].forEach(k => { p[k] = getFullPath(k) || ''; });
+        ['epochs', 'batch_size', 'img_size_train', 'img_size_test', 'workers', 'save_period'].forEach(k => {
+            p[k] = parseFloat(document.getElementById(k).value);
+        });
+        p['freeze'] = document.getElementById('freeze').value;
+        ['device', 'name'].forEach(k => { p[k] = document.getElementById(k).value; });
+        return p;
+    }
+
+    async function startTraining() {
+        const p = gatherParams();
+        if (!p.cfg) { alert('请在"模型配置"中选择模型配置文件 (cfg)'); return; }
+        if (!p.data) { alert('请选择数据配置文件'); return; }
+
+        const resp = await fetch('/api/train/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(p),
+        });
+        const result = await resp.json();
+        if (result.error) { alert(result.error); return; }
+
+        updateTrainStatus(true);
+        connectSSE();
+    }
+
+    async function stopTraining() {
+        if (!confirm('确定要停止当前训练吗？')) return;
+        await fetch('/api/train/stop', {method: 'POST'});
+        updateTrainStatus(false);
+    }
+
+    function updateTrainStatus(running) {
+        const badge = document.getElementById('statusBadge');
+        const btnStart = document.getElementById('btnStartTrain');
+        const btnStop = document.getElementById('btnStopTrain');
+        if (running) {
+            badge.textContent = '训练中';
+            badge.className = 'status-badge running';
+            btnStart.disabled = true;
+            btnStop.disabled = false;
+        } else {
+            badge.textContent = '空闲';
+            badge.className = 'status-badge';
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+        }
+    }
+
+    (async function checkStatus() {
+        const resp = await fetch('/api/train/status');
+        const st = await resp.json();
+        updateTrainStatus(st.is_running);
+    })();
+
+    // =====================================================================
+    // SSE Log Streaming
+    // =====================================================================
+    function connectSSE() {
+        if (eventSource) return;
+        eventSource = new EventSource('/api/train/log');
+        eventSource.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.heartbeat) return;
+            appendLog(data.line);
+        };
+        eventSource.onerror = function() {
+            eventSource.close();
+            eventSource = null;
+        };
+    }
+
+    function appendLog(text) {
+        const el = document.getElementById('logOutput');
+        el.textContent += text + '\n';
+        if (document.getElementById('autoScroll').checked) el.scrollTop = el.scrollHeight;
+        if (text.includes('训练结束') || text.includes('训练已被手动停止')) updateTrainStatus(false);
+    }
+    function clearLog() { document.getElementById('logOutput').textContent = ''; }
+
+    // =====================================================================
+    // Model Management
+    // =====================================================================
+    async function loadModels() {
+        const container = document.getElementById('modelList');
+        container.innerHTML = '<p class="hint">加载中...</p>';
+        const modelPath = document.getElementById('modelPath').value.trim();
+        const url = modelPath ? '/api/models?project=' + encodeURIComponent(modelPath) : '/api/models';
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (data.experiments.length === 0) {
+            container.innerHTML = '<p class="hint">暂无训练记录。完成训练后模型将显示在此处。</p>';
+            return;
+        }
+
+        container.innerHTML = data.experiments.map(exp => {
+            const m = exp.final_metrics;
+            let metricsHtml = '';
+            if (m) {
+                metricsHtml = `<div class="metric-row">
+                    <span class="metric"><b>P:</b> ${(m.precision*100).toFixed(1)}%</span>
+                    <span class="metric"><b>R:</b> ${(m.recall*100).toFixed(1)}%</span>
+                    <span class="metric"><b>mAP@50:</b> ${(m.mAP_50*100).toFixed(1)}%</span>
+                    <span class="metric"><b>mAP@50-95:</b> ${(m.mAP_50_95*100).toFixed(1)}%</span>
+                </div>`;
+            }
+
+            // Weight files with download + export buttons
+            const weightsHtml = (exp.weight_files || []).map(w =>
+                `<div class="weight-item">
+                    <span class="weight-tag">${escHtml(w.name)} (${w.size})</span>
+                    <a class="btn btn-sm" href="/api/models/download?path=${encodeURIComponent(w.path)}" title="下载 .pt">下载</a>
+                    <button class="btn btn-sm" onclick="openOnnxExport('${escAttr(w.path)}')" title="导出 ONNX">导出ONNX</button>
+                </div>`
+            ).join('');
+
+            // ONNX files with download
+            const onnxHtml = (exp.onnx_files || []).map(o =>
+                `<div class="weight-item">
+                    <span class="weight-tag onnx-tag">${escHtml(o.name)} (${o.size})</span>
+                    <a class="btn btn-sm" href="/api/models/download?path=${encodeURIComponent(o.path)}" title="下载 .onnx">下载</a>
+                </div>`
+            ).join('');
+
+            const imagesHtml = (exp.result_images || []).map(img =>
+                `<img class="result-thumb" src="/api/models/image?path=${encodeURIComponent(exp.path + '/' + img)}" 
+                      alt="${escAttr(img)}" title="${escAttr(img)}"
+                      onclick="window.open('/api/models/image?path='+encodeURIComponent('${escAttr(exp.path + '/' + img)}'),'_blank')">`
+            ).join('');
+
+            return `
+            <div class="model-card">
+                <div class="model-card-header">
+                    <div>
+                        <h3 class="model-name">${escHtml(exp.name)}</h3>
+                        <span class="model-date">${exp.created}</span>
+                    </div>
+                    <div class="model-card-actions">
+                        <button class="btn btn-sm" onclick="showModelDetail('${escAttr(exp.name)}')">详情</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteModel('${escAttr(exp.name)}')">删除</button>
+                    </div>
+                </div>
+                <div class="model-info">
+                    <span class="info-tag">Epochs: ${exp.epochs || '?'}</span>
+                    <span class="info-tag">Batch: ${exp.batch_size || '?'}</span>
+                    <span class="info-tag">Data: ${exp.data || '?'}</span>
+                    <span class="info-tag">Cfg: ${exp.cfg || '?'}</span>
+                </div>
+                ${metricsHtml}
+                <div class="model-files-section">
+                    <div class="files-label">权重文件</div>
+                    <div class="model-weights">${weightsHtml || '<span class="hint">无权重文件</span>'}</div>
+                    ${onnxHtml ? '<div class="files-label" style="margin-top:8px">ONNX 文件</div><div class="model-weights">' + onnxHtml + '</div>' : ''}
+                </div>
+                <div class="result-images">${imagesHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
+    async function showModelDetail(name) {
+        const resp = await fetch('/api/models/' + encodeURIComponent(name) + '/detail');
+        const detail = await resp.json();
+        if (detail.error) { alert(detail.error); return; }
+
+        document.getElementById('modelDetailTitle').textContent = '模型详情: ' + name;
+        const body = document.getElementById('modelDetailBody');
+        let html = `<div class="detail-section"><h4>路径</h4><code>${escHtml(detail.path)}</code></div>`;
+        if (detail.opt) html += `<div class="detail-section"><h4>训练参数 (opt.yaml)</h4><pre class="detail-pre">${escHtml(JSON.stringify(detail.opt, null, 2))}</pre></div>`;
+        if (detail.hyp) html += `<div class="detail-section"><h4>超参数 (hyp.yaml)</h4><pre class="detail-pre">${escHtml(JSON.stringify(detail.hyp, null, 2))}</pre></div>`;
+        body.innerHTML = html;
+        document.getElementById('modelDetailModal').style.display = 'flex';
+    }
+
+    async function deleteModel(name) {
+        if (!confirm('确定要删除训练结果 "' + name + '" 吗？此操作不可恢复！')) return;
+        const resp = await fetch('/api/models/' + encodeURIComponent(name) + '/delete', {method: 'POST'});
+        const result = await resp.json();
+        if (result.error) { alert(result.error); return; }
+        loadModels();
+    }
+
+    // =====================================================================
+    // ONNX Export
+    // =====================================================================
+    function openOnnxExport(weightsPath) {
+        document.getElementById('onnx_weights').value = weightsPath;
+        document.getElementById('onnxExportLog').style.display = 'none';
+        document.getElementById('onnxExportLog').textContent = '';
+        document.getElementById('onnxDownloadArea').innerHTML = '';
+        document.getElementById('btnDoExport').disabled = false;
+        document.getElementById('onnxModal').style.display = 'flex';
+    }
+
+    async function doExportOnnx() {
+        const weights = document.getElementById('onnx_weights').value;
+        const imgWidth = parseInt(document.getElementById('onnx_img_width').value) || 1024;
+        const imgHeight = parseInt(document.getElementById('onnx_img_height').value) || 1024;
+        const grid = document.getElementById('onnx_grid').value === 'true';
+
+        document.getElementById('btnDoExport').disabled = true;
+        const logEl = document.getElementById('onnxExportLog');
+        logEl.style.display = 'block';
+        logEl.textContent = '正在导出，请稍候...\n';
+        document.getElementById('onnxDownloadArea').innerHTML = '';
+
+        const resp = await fetch('/api/models/export-onnx', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({weights, img_width: imgWidth, img_height: imgHeight, grid}),
+        });
+        const result = await resp.json();
+        if (result.error) {
+            logEl.textContent += '错误: ' + result.error + '\n';
+            document.getElementById('btnDoExport').disabled = false;
+            return;
+        }
+        logEl.textContent += '命令: ' + result.command + '\n\n';
+
+        // Poll for status
+        const poll = setInterval(async () => {
+            const sr = await fetch('/api/models/export-onnx/status');
+            const st = await sr.json();
+            logEl.textContent = st.log.join('\n');
+            logEl.scrollTop = logEl.scrollHeight;
+
+            if (!st.is_running) {
+                clearInterval(poll);
+                document.getElementById('btnDoExport').disabled = false;
+                if (st.result_path) {
+                    const area = document.getElementById('onnxDownloadArea');
+                    area.innerHTML = '<a class="btn btn-primary" style="margin-top:12px;display:inline-block" ' +
+                        'href="/api/models/download?path=' + encodeURIComponent(st.result_path) + '">下载 ONNX 文件</a>';
+                }
+                loadModels();
+            }
+        }, 1000);
+    }
+
+    // =====================================================================
+    // Modals
+    // =====================================================================
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // =====================================================================
+    // Utilities
+    // =====================================================================
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function escAttr(s) { return s.replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\/g,'\\\\'); }
+
+    // =====================================================================
+    // GPU Device Functions
+    // =====================================================================
+    let cachedGPUList = null;
+
+    async function loadGPUDevices() {
+        try {
+            const resp = await fetch('/api/gpu/list');
+            cachedGPUList = await resp.json();
+        } catch (e) {
+            cachedGPUList = { gpus: [], cuda_available: false };
+        }
+    }
+
+    async function openDeviceSelect() {
+        await loadGPUDevices();
+        const data = cachedGPUList;
+        let html = '<div class="device-option"><label><input type="radio" name="device_type" value="cpu" onchange="onDeviceTypeChange()"> CPU</label></div>';
+
+        if (data.cuda_available && data.gpus.length > 0) {
+            html += '<div class="device-option"><label><input type="radio" name="device_type" value="gpu" onchange="onDeviceTypeChange()"> GPU</label></div>';
+            html += '<div id="gpuListContainer" class="gpu-list-container" style="display:none">';
+            data.gpus.forEach(gpu => {
+                const memPct = gpu.memory_total > 0 ? Math.round(gpu.memory_used / gpu.memory_total * 100) : 0;
+                html += `<div class="device-option gpu-option">
+                    <label>
+                        <input type="radio" name="gpu_device" value="${gpu.id}" disabled>
+                        GPU ${gpu.id}: ${gpu.name}
+                        <span class="gpu-info">显存: ${gpu.memory_used}/${gpu.memory_total} GB (${memPct}%) | 利用率: ${gpu.utilization}%</span>
+                    </label>
+                </div>`;
+            });
+            html += '</div>';
+        }
+
+        showDeviceModal(html);
+    }
+
+    function showDeviceModal(content) {
+        const modal = document.getElementById('deviceModal');
+        if (!modal) {
+            const modalHtml = `
+                <div id="deviceModal" class="modal" style="display:flex">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>选择设备</h3>
+                            <button class="modal-close" onclick="closeDeviceModal()">&times;</button>
+                        </div>
+                        <div class="modal-body" id="deviceModalBody"></div>
+                        <div class="modal-footer">
+                            <button class="btn" onclick="closeDeviceModal()">取消</button>
+                            <button class="btn btn-primary" onclick="confirmDeviceSelect()">确定</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        document.getElementById('deviceModalBody').innerHTML = content;
+        document.getElementById('deviceModal').style.display = 'flex';
+
+        const firstRadio = document.querySelector('input[name="device_type"]');
+        if (firstRadio) firstRadio.checked = true;
+        onDeviceTypeChange();
+    }
+
+    function closeDeviceModal() {
+        const modal = document.getElementById('deviceModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function onDeviceTypeChange() {
+        const deviceType = document.querySelector('input[name="device_type"]:checked').value;
+        const gpuContainer = document.getElementById('gpuListContainer');
+        const gpuRadios = document.querySelectorAll('input[name="gpu_device"]');
+
+        if (deviceType === 'cpu') {
+            if (gpuContainer) gpuContainer.style.display = 'none';
+            gpuRadios.forEach(r => r.disabled = true);
+        } else {
+            if (gpuContainer) gpuContainer.style.display = 'block';
+            gpuRadios.forEach(r => r.disabled = false);
+            if (gpuRadios.length > 0) gpuRadios[0].checked = true;
+        }
+    }
+
+    function confirmDeviceSelect() {
+        const deviceType = document.querySelector('input[name="device_type"]:checked').value;
+        let deviceValue = '';
+
+        if (deviceType === 'cpu') {
+            deviceValue = 'cpu';
+        } else {
+            const selectedGPU = document.querySelector('input[name="gpu_device"]:checked');
+            if (selectedGPU) {
+                deviceValue = selectedGPU.value;
+            } else {
+                alert('请选择一个GPU设备');
+                return;
+            }
+        }
+
+        document.getElementById('device').value = deviceValue;
+        document.getElementById('selectedDeviceDisplay').textContent =
+            deviceType === 'cpu' ? 'CPU' : 'GPU ' + deviceValue;
+        closeDeviceModal();
+    }
+
+    function initGPUAndLoadDefaults() {
+        loadGPUDevices();
+        loadDefaults();
+    }
+
+    // =====================================================================
+    // Inference Functions
+    // =====================================================================
+    async function loadInferenceModels() {
+        const resp = await fetch('/api/defaults');
+        const d = await resp.json();
+        const sel = document.getElementById('inference_model_select');
+        sel.innerHTML = '<option value="">-- 请选择 --</option>';
+        if (d.trained_weights && d.trained_weights.length > 0) {
+            d.trained_weights.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.path;
+                opt.textContent = w.name;
+                opt.dataset.imgWidth = w.img_width || 1024;
+                opt.dataset.imgHeight = w.img_height || 1024;
+                sel.appendChild(opt);
+            });
+        }
+        if (d.available_weights) {
+            d.available_weights.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.path;
+                opt.textContent = w.name;
+                sel.appendChild(opt);
+            });
+        }
+    }
+
+    function onInferenceModelSelect() {
+        const sel = document.getElementById('inference_model_select');
+        const el = document.getElementById('inference_weights');
+        el.dataset.fullPath = sel.value;
+        el.value = sel.value ? sel.value.split(/[/\\]/).pop() : '';
+        el.title = sel.value ? '完整路径: ' + sel.value : '';
+
+        if (sel.value) {
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt.dataset.imgWidth) {
+                fetchModelInfo(sel.value);
+            }
+        }
+    }
+
+    let cachedModelInfo = {};
+    async function fetchModelInfo(modelPath) {
+        try {
+            const resp = await fetch('/api/model/info?path=' + encodeURIComponent(modelPath));
+            const d = await resp.json();
+            cachedModelInfo[modelPath] = d.img_size || 1024;
+        } catch (e) {
+            console.error('Failed to get model info:', e);
+            cachedModelInfo[modelPath] = 1024;
+        }
+    }
+
+    function onVideoSelected() {
+        const fileInput = document.getElementById('videoUpload');
+        const videoPath = document.getElementById('videoPath');
+        if (fileInput.files.length > 0) {
+            videoPath.value = fileInput.files[0].name;
+        }
+    }
+
+    function onInputTypeChange() {
+        const inputType = document.querySelector('input[name="inputType"]:checked').value;
+        document.getElementById('videoInputArea').style.display = inputType === 'video' ? 'block' : 'none';
+        document.getElementById('folderInputArea').style.display = inputType === 'folder' ? 'block' : 'none';
+    }
+
+    function onInferenceModeChange() {
+        const inferenceMode = document.querySelector('input[name="inferenceMode"]:checked').value;
+        document.getElementById('yoloModelGroup').style.display = inferenceMode === 'fast' ? 'block' : 'none';
+        document.getElementById('qwenModelGroup').style.display = inferenceMode === 'large' ? 'block' : 'none';
+    }
+
+    function resetInference() {
+        document.getElementById('inference_weights').value = '';
+        document.getElementById('inference_weights').dataset.fullPath = '';
+        document.getElementById('videoPath').value = '';
+        document.getElementById('videoUpload').value = '';
+        document.getElementById('frameInterval').value = '5';
+        document.getElementById('maxFrames').value = '100';
+        document.getElementById('outputFolder').value = 'inference_result';
+        document.getElementById('conf_thres').value = '0.25';
+        document.getElementById('iou_thres').value = '0.45';
+        document.getElementById('inference_model_select').selectedIndex = 0;
+        document.getElementById('saveResultImages').checked = true;
+        document.getElementById('inferenceResultArea').style.display = '';
+    }
+
+    var resultImages = [];
+    var currentResultIndex = 0;
+
+    async function startInference() {
+        const inferenceMode = document.querySelector('input[name="inferenceMode"]:checked').value;
+        let weights = '';
+        let qwenModelPath = '';
+        
+        if (inferenceMode === 'fast') {
+            weights = document.getElementById('inference_weights').dataset.fullPath || document.getElementById('inference_weights').value;
+            if (!weights) {
+                alert('请选择YOLO模型权重文件');
+                return;
+            }
+        } else {
+            qwenModelPath = document.getElementById('qwen_model_path').dataset.fullPath || document.getElementById('qwen_model_path').value;
+            if (!qwenModelPath) {
+                alert('请选择Qwen模型文件夹');
+                return;
+            }
+        }
+
+        const inputType = document.querySelector('input[name="inputType"]:checked').value;
+        const frameInterval = parseInt(document.getElementById('frameInterval').value) || 5;
+        const maxFrames = parseInt(document.getElementById('maxFrames').value) || 100;
+        const outputFolder = document.getElementById('outputFolder').value || 'inference_result';
+        const modelPath = inferenceMode === 'fast' ? (document.getElementById('inference_weights').dataset.fullPath || document.getElementById('inference_weights').value) : qwenModelPath;
+        const imgSize = cachedModelInfo[modelPath] || 1024;
+        const confThres = parseFloat(document.getElementById('conf_thres').value) || 0.25;
+        const iouThres = parseFloat(document.getElementById('iou_thres').value) || 0.45;
+        const saveImages = document.getElementById('saveResultImages').checked;
+        const onlySaveWithObjects = document.getElementById('onlySaveWithObjects').checked;
+        const ignoreClassId = document.getElementById('ignoreClassId').value;
+
+        let videoFile = null;
+        let imageFolder = null;
+
+        if (inputType === 'video') {
+            videoFile = document.getElementById('videoUpload').files[0];
+            if (!videoFile) {
+                alert('请选择视频文件');
+                return;
+            }
+        } else {
+            imageFolder = document.getElementById('imageFolder').value;
+            if (!imageFolder) {
+                alert('请选择图片文件夹');
+                return;
+            }
+        }
+
+        document.getElementById('btnStartInference').disabled = true;
+        resultImages = [];
+        currentResultIndex = 0;
+        const resultDiv = document.getElementById('inferenceResult') || document.createElement('div');
+        resultDiv.id = 'inferenceResult';
+        resultDiv.className = 'split-result';
+        resultDiv.innerHTML = '<div id="inferenceProgress">正在上传视频并开始推理...</div><div id="inferenceStatus">等待开始...</div>';
+        const actionBar = document.querySelector('#tab-inference .action-bar');
+        actionBar.parentNode.insertBefore(resultDiv, actionBar.nextSibling);
+
+        document.getElementById('inferenceResultArea').style.display = 'flex';
+
+        try {
+            let resp, startResult;
+
+            if (inputType === 'video') {
+                const formData = new FormData();
+                formData.append('video', videoFile);
+                formData.append('inference_mode', inferenceMode);
+                formData.append('weights', weights);
+                formData.append('qwen_model_path', qwenModelPath);
+                formData.append('frame_interval', frameInterval);
+                formData.append('max_frames', maxFrames);
+                formData.append('output_folder', outputFolder);
+                formData.append('img_size', imgSize);
+                formData.append('conf_thres', confThres);
+                formData.append('iou_thres', iouThres);
+                formData.append('save_images', saveImages);
+                formData.append('only_save_with_objects', onlySaveWithObjects);
+                formData.append('ignore_class_id', ignoreClassId);
+
+                resp = await fetch('/api/inference/start', {
+                    method: 'POST',
+                    body: formData
+                });
+            } else {
+                const jsonData = {
+                    inference_mode: inferenceMode,
+                    weights: weights,
+                    qwen_model_path: qwenModelPath,
+                    source_folder: imageFolder,
+                    output_folder: outputFolder,
+                    img_size: imgSize,
+                    conf_thres: confThres,
+                    iou_thres: iouThres,
+                    save_images: saveImages,
+                    only_save_with_objects: onlySaveWithObjects,
+                    ignore_class_id: ignoreClassId
+                };
+
+                resp = await fetch('/api/inference/start-folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(jsonData)
+                });
+            }
+
+            startResult = await resp.json();
+            if (startResult.error) {
+                resultDiv.innerHTML = startResult.error;
+                resultDiv.className = 'split-result error';
+                document.getElementById('btnStartInference').disabled = false;
+                return;
+            }
+
+            document.getElementById('inferenceProgress').textContent = '推理进行中...';
+            document.getElementById('inferenceStatus').textContent = '等待结果...';
+
+            const eventSource = new EventSource('/api/inference/stream');
+
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.error) {
+                        document.getElementById('inferenceStatus').textContent = '错误: ' + data.error;
+                        eventSource.close();
+                        return;
+                    }
+                    if (data.heartbeat) {
+                        return;
+                    }
+                    if (data.type === 'image') {
+                        resultImages.push(data.url);
+                        document.getElementById('inferenceStatus').textContent = '已处理: ' + resultImages.length + ' 张图片';
+                        if (currentResultIndex === resultImages.length - 2) {
+                            currentResultIndex++;
+                            showResultImage();
+                        }
+                    } else if (data.type === 'done') {
+                        document.getElementById('inferenceProgress').textContent = '推理完成！';
+                        document.getElementById('inferenceStatus').textContent = '共处理: ' + resultImages.length + ' 张图片';
+                        resultDiv.className = 'split-result success';
+                        resultDiv.innerHTML = '推理完成！结果保存在: <a href="#" onclick="openFolder(\'' + startResult.output_dir.replace(/\\/g, '\\\\') + '\')">' + startResult.output_dir + '</a><br>共 ' + resultImages.length + ' 张图片';
+                        eventSource.close();
+                    }
+                } catch (e) {
+                    console.error('SSE parse error:', e);
+                }
+            };
+
+            eventSource.onerror = function() {
+                document.getElementById('inferenceStatus').textContent = 'SSE连接错误';
+                eventSource.close();
+            };
+
+            setTimeout(() => {
+                if (!eventSource.readyState === EventSource.CLOSED) {
+                    eventSource.close();
+                    document.getElementById('btnStartInference').disabled = false;
+                }
+            }, 300000);
+
+        } catch (e) {
+            resultDiv.textContent = '推理失败: ' + e;
+            resultDiv.className = 'split-result error';
+        }
+        document.getElementById('btnStartInference').disabled = false;
+    }
+
+    function loadResultImages(images, txtFiles) {
+        resultImages = images;
+        currentResultIndex = 0;
+        document.getElementById('inferenceResultArea').style.display = 'flex';
+        showResultImage();
+    }
+
+    function showResultImage() {
+        if (resultImages.length === 0) return;
+        const img = document.getElementById('resultImage');
+        const url = resultImages[currentResultIndex];
+        img.src = url + '?t=' + new Date().getTime();
+        document.getElementById('resultCounter').textContent = (currentResultIndex + 1) + ' / ' + resultImages.length;
+        document.getElementById('btnPrevResult').disabled = currentResultIndex === 0;
+        document.getElementById('btnNextResult').disabled = currentResultIndex >= resultImages.length - 1;
+    }
+
+    function prevResultImage() {
+        if (currentResultIndex > 0) {
+            currentResultIndex--;
+            showResultImage();
+        }
+    }
+
+    function nextResultImage() {
+        if (currentResultIndex < resultImages.length - 1) {
+            currentResultIndex++;
+            showResultImage();
+        }
+    }
+
+    function openFolder(path) {
+        var normalizedPath = path.replace(/\\/g, '/').replace(/:/, '://');
+        window.open('file:///' + normalizedPath);
+    }
+
+    // =====================================================================
+    // Realtime Stream Inference
+    // =====================================================================
+    async function loadRealtimeModels() {
+        const resp = await fetch('/api/defaults');
+        const d = await resp.json();
+        const sel = document.getElementById('rt_model_select');
+        sel.innerHTML = '<option value="">-- 请选择 --</option>';
+
+        if (d.trained_weights && d.trained_weights.length > 0) {
+            d.trained_weights.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.path;
+                opt.textContent = w.name;
+                sel.appendChild(opt);
+            });
+        }
+        if (d.available_weights) {
+            d.available_weights.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.path;
+                opt.textContent = w.name;
+                sel.appendChild(opt);
+            });
+        }
+    }
+
+    function onRealtimeModelSelect() {
+        const sel = document.getElementById('rt_model_select');
+        const el = document.getElementById('rt_weights');
+        el.dataset.fullPath = sel.value;
+        el.value = sel.value ? sel.value.split(/[/\\]/).pop() : '';
+        el.title = sel.value ? '完整路径: ' + sel.value : '';
+    }
+
+    function stopRealtimePolling() {
+        if (realtimeFrameTimer) {
+            clearInterval(realtimeFrameTimer);
+            realtimeFrameTimer = null;
+        }
+        if (realtimeStatusTimer) {
+            clearInterval(realtimeStatusTimer);
+            realtimeStatusTimer = null;
+        }
+        if (realtimeImageObjectUrl) {
+            URL.revokeObjectURL(realtimeImageObjectUrl);
+            realtimeImageObjectUrl = null;
+        }
+    }
+
+    function startRealtimePolling() {
+        stopRealtimePolling();
+
+        realtimeFrameTimer = setInterval(async () => {
+            try {
+                const resp = await fetch('/api/realtime/frame?t=' + Date.now());
+                if (!resp.ok) return;
+                const blob = await resp.blob();
+                if (blob.size === 0) return;
+                const nextUrl = URL.createObjectURL(blob);
+                const img = document.getElementById('realtimeFrame');
+                const oldUrl = realtimeImageObjectUrl;
+                img.src = nextUrl;
+                realtimeImageObjectUrl = nextUrl;
+                if (oldUrl) URL.revokeObjectURL(oldUrl);
+            } catch (e) {
+                console.error(e);
+            }
+        }, 200);
+
+        realtimeStatusTimer = setInterval(refreshRealtimeStatus, 1000);
+        refreshRealtimeStatus();
+    }
+
+    function updateRealtimeButtonState(connected) {
+        document.getElementById('btnRtConnect').disabled = connected;
+        document.getElementById('btnRtDisconnect').disabled = !connected;
+        document.getElementById('btnRtSaveFrame').disabled = !connected;
+        document.getElementById('btnRtSendFrame').disabled = !connected;
+    }
+
+    async function refreshRealtimeStatus() {
+        try {
+            const resp = await fetch('/api/realtime/status');
+            const data = await resp.json();
+            updateRealtimeButtonState(!!data.is_running);
+
+            const statusEl = document.getElementById('realtimeStatusText');
+            const metaEl = document.getElementById('realtimeMeta');
+            if (data.is_running) {
+                statusEl.textContent = '已连接: ' + (data.stream_source || '');
+                metaEl.textContent = data.last_frame_time ? ('更新时间: ' + data.last_frame_time) : '连接中...';
+            } else {
+                statusEl.textContent = data.error ? ('连接异常: ' + data.error) : '未连接';
+                metaEl.textContent = '等待连接';
+            }
+
+            const infoEl = document.getElementById('realtimeResultInfo');
+            if (data.last_result && data.last_result.length > 0) {
+                infoEl.innerHTML = data.last_result.map(item =>
+                    `类别: ${escHtml(item.label)} | 置信度: ${(item.conf * 100).toFixed(1)}% | 框: [${item.xyxy.join(', ')}]`
+                ).join('<br>');
+            } else {
+                infoEl.textContent = '暂无推理结果';
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function connectRealtimeStream() {
+        let mmapDir = document.getElementById('rtMmapDir').value.trim();
+        const weights = getFullPath('rt_weights');
+        const confThres = parseFloat(document.getElementById('rt_conf_thres').value) || 0.25;
+        const iouThres = parseFloat(document.getElementById('rt_iou_thres').value) || 0.45;
+
+        if (!weights) {
+            alert('请选择模型权重文件');
+            return;
+        }
+
+        const resp = await fetch('/api/realtime/connect', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                data_source: 'mmap',
+                stream_url: '',
+                weights: weights,
+                conf_thres: confThres,
+                iou_thres: iouThres,
+                mmap_shared_dir: mmapDir,
+                mmap_category: 'eo',
+            }),
+        });
+
+        const result = await resp.json();
+        if (!resp.ok || result.error) {
+            alert(result.error || '连接失败');
+            return;
+        }
+
+        updateRealtimeButtonState(true);
+        document.getElementById('realtimeStatusText').textContent = '连接成功，正在拉流推理...';
+        startRealtimePolling();
+    }
+
+    async function disconnectRealtimeStream() {
+        await fetch('/api/realtime/disconnect', {method: 'POST'});
+        stopRealtimePolling();
+        updateRealtimeButtonState(false);
+        document.getElementById('realtimeStatusText').textContent = '已断开连接';
+        document.getElementById('realtimeMeta').textContent = '等待连接';
+    }
+
+    async function saveRealtimeFrame() {
+        const resp = await fetch('/api/realtime/save-current', {method: 'POST'});
+        const result = await resp.json();
+        if (!resp.ok || result.error) {
+            alert(result.error || '保存失败');
+            return;
+        }
+        alert('保存成功: ' + result.frame_path);
+    }
+
+    async function sendRealtimeFrame() {
+        const resp = await fetch('/api/realtime/send-current', {method: 'POST'});
+        const result = await resp.json();
+        if (!resp.ok || result.error) {
+            alert(result.error || '发送失败');
+            return;
+        }
+        // 通过 Electron moduleBridge 发布 topic 消息给 uav-locate
+        if (typeof moduleBridge !== 'undefined') {
+            moduleBridge.publish('detection/eo', JSON.stringify(result.payload));
+            alert(result.message);
+        } else {
+            alert('发送失败：未在 Electron 环境中运行，无法发送跨进程消息');
+        }
+    }
+
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordingStream = null;
+
+    function getSupportedMimeType() {
+        const types = [
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm',
+            'video/mp4',
+        ];
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                console.log('Supported MIME type:', type);
+                return type;
+            }
+        }
+        return '';
+    }
+
+    async function startRecording() {
+        try {
+            console.log('Starting recording...');
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                document.getElementById('recordingStatusText').textContent = '已经在录制中';
+                document.getElementById('recordingStatusText').style.color = '#f59e0b';
+                return;
+            }
+
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { cursor: 'always' },
+                audio: false,
+                preferCurrentTab: true
+            });
+            recordingStream = stream;
+            console.log('Got display media stream');
+
+            recordedChunks = [];
+
+            const mimeType = getSupportedMimeType();
+            const options = mimeType ? { mimeType } : {};
+            console.log('Creating MediaRecorder with options:', options);
+            mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorder.ondataavailable = function(e) {
+                console.log('ondataavailable, data size:', e.data ? e.data.size : 0);
+                if (e.data && e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+
+            mediaRecorder.onerror = function(e) {
+                console.error('MediaRecorder error:', e);
+                document.getElementById('recordingStatusText').textContent = '录制出错';
+                document.getElementById('recordingStatusText').style.color = '#dc2626';
+            };
+
+            mediaRecorder.start(1000);
+            console.log('MediaRecorder started, state:', mediaRecorder.state);
+
+            const outputPath = document.getElementById('recording_path').value.trim();
+
+            const resp = await fetch('/api/recording/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ output_path: outputPath }),
+            });
+            const result = await resp.json();
+            console.log('Backend start response:', result);
+            if (!resp.ok || result.error) {
+                document.getElementById('recordingStatusText').textContent = '启动失败: ' + (result.error || '未知错误');
+                document.getElementById('recordingStatusText').style.color = '#dc2626';
+                stream.getTracks().forEach(track => track.stop());
+                mediaRecorder = null;
+                return;
+            }
+
+            document.getElementById('btnStartRecording').disabled = true;
+            document.getElementById('btnStopRecording').disabled = false;
+            document.getElementById('recordingStatusText').textContent = '正在录制...';
+            document.getElementById('recordingStatusText').style.color = '#dc2626';
+
+        } catch (e) {
+            console.error('启动录制失败:', e);
+            document.getElementById('recordingStatusText').textContent = '启动失败: ' + e.message;
+            document.getElementById('recordingStatusText').style.color = '#dc2626';
+            mediaRecorder = null;
+            recordingStream = null;
+        }
+    }
+
+    async function stopRecording() {
+        console.log('stopRecording called, mediaRecorder:', mediaRecorder);
+        console.log('mediaRecorder state:', mediaRecorder ? mediaRecorder.state : 'null');
+
+        if (!mediaRecorder) {
+            document.getElementById('recordingStatusText').textContent = '当前没有在录制';
+            document.getElementById('recordingStatusText').style.color = '#f59e0b';
+            return;
+        }
+
+        if (mediaRecorder.state === 'inactive') {
+            console.log('Recorder already inactive, resetting UI');
+            document.getElementById('btnStartRecording').disabled = false;
+            document.getElementById('btnStopRecording').disabled = true;
+            document.getElementById('recordingStatusText').textContent = '录制已结束';
+            document.getElementById('recordingStatusText').style.color = '#059669';
+            mediaRecorder = null;
+            recordedChunks = [];
+            recordingStream = null;
+            return;
+        }
+
+        document.getElementById('recordingStatusText').textContent = '正在停止录制...';
+        document.getElementById('recordingStatusText').style.color = '#7c3aed';
+
+        mediaRecorder.onstop = async function() {
+            console.log('onstop fired, chunks:', recordedChunks.length);
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            console.log('Blob size:', blob.size);
+
+            if (blob.size === 0) {
+                document.getElementById('recordingStatusText').textContent = '录制数据为空';
+                document.getElementById('recordingStatusText').style.color = '#dc2626';
+                document.getElementById('btnStartRecording').disabled = false;
+                document.getElementById('btnStopRecording').disabled = true;
+                mediaRecorder = null;
+                recordedChunks = [];
+                recordingStream = null;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const base64 = reader.result.split(',')[1];
+                console.log('Sending to backend, base64 length:', base64.length);
+
+                document.getElementById('recordingStatusText').textContent = '正在保存视频...';
+
+                const resp = await fetch('/api/recording/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_data: base64,
+                        filename: '',
+                    }),
+                });
+                const result = await resp.json();
+                console.log('Backend response:', result);
+
+                if (!resp.ok || result.error) {
+                    document.getElementById('recordingStatusText').textContent = '保存失败: ' + (result.error || '未知错误');
+                    document.getElementById('recordingStatusText').style.color = '#dc2626';
+                } else {
+                    document.getElementById('recordingStatusText').textContent = `录制已保存 (${(result.size / 1024 / 1024).toFixed(2)}MB, ${result.duration}s)`;
+                    document.getElementById('recordingStatusText').style.color = '#059669';
+                }
+
+                document.getElementById('btnStartRecording').disabled = false;
+                document.getElementById('btnStopRecording').disabled = true;
+                recordedChunks = [];
+                mediaRecorder = null;
+                recordingStream = null;
+            };
+            reader.readAsDataURL(blob);
+        };
+
+        console.log('Stopping stream tracks and recorder...');
+        if (recordingStream) {
+            recordingStream.getTracks().forEach(track => track.stop());
+        }
+        mediaRecorder.stop();
+        console.log('mediaRecorder.stop() called, waiting for onstop...');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadInferenceModels();
+        loadRealtimeModels();
+        refreshRealtimeStatus();
+    });
+    </script>
+    <div class="footer">智能算法研究所</div>
+</body>
+</html>
