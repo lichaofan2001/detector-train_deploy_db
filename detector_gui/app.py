@@ -153,6 +153,8 @@ _train_state = {
     'is_running': False,
     'start_time': None,
     'params': None,
+    'session_id': None,
+    'log_file': None,
 }
 _log_lock = threading.Lock()
 
@@ -164,6 +166,29 @@ _export_state = {
     'result_path': None,
 }
 _export_lock = threading.Lock()
+
+def _get_train_log_dir():
+    """Return the directory for training log files."""
+    log_dir = _get_project_root() / 'logs'
+    log_dir.mkdir(exist_ok=True)
+    return log_dir
+
+def _get_or_create_session_id():
+    """Get existing session ID from state, or create new one if training not running."""
+    with _log_lock:
+        if _train_state['is_running'] and _train_state['session_id']:
+            return _train_state['session_id']
+        return f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{random.randint(1000, 9999)}"
+
+def _write_log_to_file(session_id, line, mode='a'):
+    """Write a log line to the persistent log file."""
+    try:
+        log_file = _get_train_log_dir() / f"{session_id}.log"
+        with open(log_file, mode, encoding='utf-8') as f:
+            f.write(line + '\n')
+        return log_file
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -509,16 +534,24 @@ def _build_train_command(params):
 
 def _stream_output(proc, log_queue):
     """Read process stdout and push to the log queue."""
+    session_id = _train_state.get('session_id')
+    log_file = _train_state.get('log_file')
     try:
         for line in iter(proc.stdout.readline, ''):
             if line:
-                log_queue.put(line.rstrip('\n'))
+                line = line.rstrip('\n')
+                log_queue.put(line)
+                if session_id and log_file:
+                    _write_log_to_file(session_id, line, 'a')
         proc.stdout.close()
     except Exception:
         pass
 
     proc.wait()
-    log_queue.put(f'\n===== 训练结束 (返回码: {proc.returncode}) =====')
+    end_msg = f'\n===== 训练结束 (返回码: {proc.returncode}) ====='
+    log_queue.put(end_msg)
+    if session_id and log_file:
+        _write_log_to_file(session_id, end_msg, 'a')
     with _log_lock:
         _train_state['is_running'] = False
 
@@ -539,9 +572,17 @@ def api_train_start():
         except queue.Empty:
             break
 
+    session_id = _get_or_create_session_id()
+    log_file = _write_log_to_file(session_id, '', 'w')
+
     _train_state['log_queue'].put('===== 启动训练 =====')
     _train_state['log_queue'].put(f'命令: {" ".join(cmd)}')
     _train_state['log_queue'].put('')
+
+    if log_file:
+        _write_log_to_file(session_id, '===== 启动训练 =====', 'a')
+        _write_log_to_file(session_id, f'命令: {" ".join(cmd)}', 'a')
+        _write_log_to_file(session_id, '', 'a')
 
     try:
         popen_kwargs = dict(
@@ -562,11 +603,13 @@ def api_train_start():
         _train_state['is_running'] = True
         _train_state['start_time'] = datetime.now().isoformat()
         _train_state['params'] = params
+        _train_state['session_id'] = session_id
+        _train_state['log_file'] = str(log_file) if log_file else None
 
     t = threading.Thread(target=_stream_output, args=(proc, _train_state['log_queue']), daemon=True)
     t.start()
 
-    return jsonify({'status': 'started', 'pid': proc.pid, 'command': ' '.join(cmd)})
+    return jsonify({'status': 'started', 'pid': proc.pid, 'command': ' '.join(cmd), 'session_id': session_id})
 
 
 @app.route('/api/train/stop', methods=['POST'])
@@ -605,6 +648,8 @@ def api_train_status():
             'is_running': _train_state['is_running'],
             'start_time': _train_state['start_time'],
             'params': _train_state['params'],
+            'session_id': _train_state['session_id'],
+            'log_file': _train_state['log_file'],
         })
 
 
@@ -621,6 +666,38 @@ def api_train_log():
 
     return Response(generate(), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.route('/api/train/log/history')
+def api_train_log_history():
+    """Get historical log lines from a session file.
+
+    Query params:
+        session_id: The training session ID
+        from_line: (optional) Line number to start from (0-indexed)
+    """
+    session_id = request.args.get('session_id')
+    from_line = int(request.args.get('from_line', 0))
+
+    if not session_id:
+        return jsonify({'error': 'session_id is required'}), 400
+
+    log_file = _get_train_log_dir() / f"{session_id}.log"
+    if not log_file.exists():
+        return jsonify({'error': 'Log file not found', 'lines': [], 'total': 0}), 404
+
+    try:
+        with open(log_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        lines = [l.rstrip('\n') for l in lines]
+        return jsonify({
+            'lines': lines[from_line:],
+            'total': len(lines),
+            'from_line': from_line,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'lines': [], 'total': 0}), 500
 
 
 # ---------------------------------------------------------------------------

@@ -956,6 +956,9 @@
         const result = await resp.json();
         if (result.error) { alert(result.error); return; }
 
+        clearLog();
+        sessionStorage.setItem('trainSessionId', result.session_id || '');
+        sessionStorage.setItem('trainLogLine', '0');
         updateTrainStatus(true);
         connectSSE();
     }
@@ -987,7 +990,32 @@
         const resp = await fetch('/api/train/status');
         const st = await resp.json();
         updateTrainStatus(st.is_running);
+
+        if (st.is_running && st.session_id) {
+            sessionStorage.setItem('trainSessionId', st.session_id || '');
+            sessionStorage.setItem('trainLogLine', '0');
+            await loadHistoryLog(st.session_id, 0);
+            connectSSE();
+        }
     })();
+
+    async function loadHistoryLog(sessionId, fromLine) {
+        if (!sessionId) return;
+        try {
+            const resp = await fetch(`/api/train/log/history?session_id=${encodeURIComponent(sessionId)}&from_line=${fromLine}`);
+            const data = await resp.json();
+            if (data.lines && data.lines.length > 0) {
+                const el = document.getElementById('logOutput');
+                data.lines.forEach(line => {
+                    el.textContent += line + '\n';
+                });
+                if (document.getElementById('autoScroll').checked) el.scrollTop = el.scrollHeight;
+                sessionStorage.setItem('trainLogLine', String(data.total));
+            }
+        } catch (e) {
+            console.error('Failed to load history log:', e);
+        }
+    }
 
     // =====================================================================
     // SSE Log Streaming
@@ -999,6 +1027,8 @@
             const data = JSON.parse(e.data);
             if (data.heartbeat) return;
             appendLog(data.line);
+            const lineCount = parseInt(sessionStorage.getItem('trainLogLine') || '0', 10) + 1;
+            sessionStorage.setItem('trainLogLine', String(lineCount));
         };
         eventSource.onerror = function() {
             eventSource.close();
@@ -1010,9 +1040,17 @@
         const el = document.getElementById('logOutput');
         el.textContent += text + '\n';
         if (document.getElementById('autoScroll').checked) el.scrollTop = el.scrollHeight;
-        if (text.includes('训练结束') || text.includes('训练已被手动停止')) updateTrainStatus(false);
+        if (text.includes('训练结束') || text.includes('训练已被手动停止')) {
+            updateTrainStatus(false);
+            sessionStorage.removeItem('trainSessionId');
+            sessionStorage.removeItem('trainLogLine');
+        }
     }
-    function clearLog() { document.getElementById('logOutput').textContent = ''; }
+    function clearLog() {
+        document.getElementById('logOutput').textContent = '';
+        sessionStorage.removeItem('trainSessionId');
+        sessionStorage.removeItem('trainLogLine');
+    }
 
     // =====================================================================
     // Model Management
