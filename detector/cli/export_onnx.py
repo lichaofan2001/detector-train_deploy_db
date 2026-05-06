@@ -138,7 +138,7 @@ def export_onnx(weights, img_size, batch_size, dynamic=False, dynamic_batch=Fals
     print('\nStarting ONNX export with onnx %s...' % onnx.__version__)
     torch.onnx.export(
         model,
-        img,
+        (img,),
         f,
         verbose=False,
         opset_version=opset,
