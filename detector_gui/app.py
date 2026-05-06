@@ -169,7 +169,7 @@ _export_lock = threading.Lock()
 
 def _get_train_log_dir():
     """Return the directory for training log files."""
-    log_dir = _get_project_root() / 'logs'
+    log_dir = _get_yolo7_cfg_base() / 'logs'
     log_dir.mkdir(exist_ok=True)
     return log_dir
 
@@ -532,10 +532,8 @@ def _build_train_command(params):
     return cmd
 
 
-def _stream_output(proc, log_queue):
+def _stream_output(proc, log_queue, session_id=None, log_file=None):
     """Read process stdout and push to the log queue."""
-    session_id = _train_state.get('session_id')
-    log_file = _train_state.get('log_file')
     try:
         for line in iter(proc.stdout.readline, ''):
             if line:
@@ -606,7 +604,7 @@ def api_train_start():
         _train_state['session_id'] = session_id
         _train_state['log_file'] = str(log_file) if log_file else None
 
-    t = threading.Thread(target=_stream_output, args=(proc, _train_state['log_queue']), daemon=True)
+    t = threading.Thread(target=_stream_output, args=(proc, _train_state['log_queue'], session_id, log_file), daemon=True)
     t.start()
 
     return jsonify({'status': 'started', 'pid': proc.pid, 'command': ' '.join(cmd), 'session_id': session_id})
@@ -776,12 +774,12 @@ def api_models():
                     lines = f.readlines()
                 if lines:
                     last_line = lines[-1].strip().split()
-                    if len(last_line) >= 8:
+                    if len(last_line) >= 12:
                         exp_info['final_metrics'] = {
-                            'precision': float(last_line[4]),
-                            'recall': float(last_line[5]),
-                            'mAP_50': float(last_line[6]),
-                            'mAP_50_95': float(last_line[7]),
+                            'precision': float(last_line[8]),
+                            'recall': float(last_line[9]),
+                            'mAP_50': float(last_line[10]),
+                            'mAP_50_95': float(last_line[11]),
                         }
             except Exception:
                 pass
