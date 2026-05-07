@@ -1,38 +1,36 @@
-# Changelog
+# 版本更新日志
 
-All notable changes to this project will be documented in this file.
+格式说明：
+- **MAJOR.MINOR.PATCH** 版本号
+  - MAJOR: 主版本，不兼容的API修改
+  - MINOR: 次版本，向后兼容的新功能
+  - PATCH: 补丁版本，向后兼容的bug修复
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+---
 
-## [1.0.0] - 2026-04-17
+## [1.1.0] - 2026-05-06
 
-### Added
-- Initial release of Detector Training Management System
-- Web-based GUI for model training and inference
-- Support for YOLO model training and testing
-- Real-time training log streaming
-- Model management and export functionality
-- Inference testing with video and image support
-- Version management system
-- Support for both fast inference (YOLO) and large model inference
-- Advanced inference options:
-  - Save only images with detected targets
-  - Ignore specific class IDs
-  - Video frame naming with timestamp information
+### 新增功能
+- 训练日志持久化：日志文件保存到 `yolo_train_tool/logs/` 目录
+- 页面刷新恢复：刷新页面后可继续查看训练日志
+- 新增 `/api/train/log/history` 接口获取历史日志
 
-### Features
-- Training configuration management
-- Real-time training progress monitoring
-- Model weight management
-- ONNX export support
-- Multi-model support
-- Batch inference for videos and image folders
-- Customizable inference parameters
+### 问题修复
+- 修复 ONNX 导出时 TracerWarning 警告问题
+  - `torch.onnx.export()` 输入参数改为元组形式 `(img,)`
+  - `Model.forward()` 添加 `torch.onnx.is_in_onnx_export()` 检测
+  - `Model.forward_once()` 添加 `torch.onnx.is_in_onnx_export()` 检测
+- 修复模型管理界面指标显示错误：修正 `results.txt` 解析索引从 `[4-7]` 改为 `[8-11]`
 
-### Technical
-- Flask-based web interface
-- Support for CUDA acceleration
-- Integration with YOLOv7 architecture
-- Cross-platform support (Windows/Linux)
-- Semantic versioning system
+### 变更说明
+- 日志文件目录从 `project_root/logs/` 改为 `project_root/yolo_train_tool/logs/`
+- 前端 `sessionStorage` 用于保存当前训练 session 信息
+
+---
+
+## [1.0.0] - 初始版本
+
+### 功能
+- 基础训练功能
+- ONNX 导出功能
+- 模型管理界面
