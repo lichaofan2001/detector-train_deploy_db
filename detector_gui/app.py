@@ -240,7 +240,7 @@ def api_defaults():
         'img_size_train': 1024,
         'img_size_test': 1024,
         'device': '0',
-        'workers': 16,
+        'workers': 1,
         'name': 'exp',
         'freeze': '',
         'available_cfgs': [{'name': f.name, 'path': str(f)} for f in cfg_files],
@@ -509,7 +509,7 @@ def _build_train_command(params):
     test_sz = params.get('img_size_test', 1024)
     cmd.extend(['--img-size', str(train_sz), str(test_sz)])
     cmd.extend(['--device', str(params.get('device', '0'))])
-    cmd.extend(['--workers', str(params.get('workers', 16))])
+    cmd.extend(['--workers', str(params.get('workers', 1))])
 
     freeze = params.get('freeze', '')
     if freeze:
