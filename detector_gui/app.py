@@ -2127,10 +2127,6 @@ def api_realtime_send_current():
         result = list(_realtime_state.get('last_result') or [])
         frame_id = _realtime_state.get('last_frame_id', 0)
 
-    if not result:
-        return jsonify({'error': '当前帧暂无推理结果可发送'}), 400
-
-    # 构造检测消息
     detections = []
     for item in result:
         detections.append({
